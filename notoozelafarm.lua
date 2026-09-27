@@ -34,7 +34,7 @@ __inst += 1
 getgenv().ozelafarminst = __inst
 --if true then return print("quick exited") end
 
-local devtesting = false
+local devtesting = true
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress and not devtesting then
         local success, content = pcall(readfile, "ozelafarm.lua")
@@ -219,6 +219,10 @@ local function rfid()
 
     UseSimonSays:FireServer(needed_colorbox, needed_color)
     task.wait(3)
+
+    if LocalPlayer.PlayerGui.SG_Package.MainGui.Objective.text_objectiveMain.Text == "Gain access to the underground level" then
+        error("rfid reader couldnt open")
+    end
 end
 
 local function admin1()
@@ -227,14 +231,28 @@ local function admin1()
         local prompt = v1:FindFirstChildWhichIsA("ProximityPrompt", true)
         if v1.Name == "_" then fail = true; return end
         if not prompt then return end
-        settppos(prompt.Parent.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(180)), true)
+        settppos(prompt.Parent.CFrame * CFrame.new(0, -7, 0), true)
         task.wait(1)
         interact(prompt, 1)
         task.wait(2)
     end
     while not fail and task.wait() do
+        local totalcollection = 0
         for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
             file(v1)
+            totalcollection += 1
+        end
+
+        local collectedamount = 0
+        for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
+            if not v1:FindFirstChildWhichIsA("ProximityPrompt", true) or v1.Name == "_" then
+                collectedamount += 1
+            end
+        end
+        print(totalcollection, collectedamount)
+        if collectedamount ~= totalcollection then
+            warn("possible collection fail")
+            break
         end
     end
     task.wait(1)
@@ -246,9 +264,23 @@ local function admin2()
     settppos(pos2[1], true)
     local manager
     local posindex
+    local managerunmovingtick = 0
+    local managerunmovingrun = false
+    local managerlastpos = Vector3.zero
     while not manager and task.wait() do
+        if not managerunmovingrun then
+            managerunmovingtick = tick()
+        end
+        
         for _, v1 in pairs(Workspace.Citizens:GetChildren()) do
             if not v1:FindFirstChild("HasUSB") then continue end
+
+            if not managerunmovingrun and (v1.Torso.Position - managerlastpos).Magnitude <= 2 then
+                managerunmovingrun = true
+            else
+                managerlastpos = v1.Torso.Position
+                managerunmovingrun = false
+            end
 
             local passedpos
             for i, p in pairs(pos1) do
@@ -259,6 +291,10 @@ local function admin2()
             manager = v1
             posindex = passedpos
             break
+        end
+
+        if managerunmovingrun and tick() - managerunmovingtick >= 10 then
+            error("manager is not moving")
         end
     end
 
@@ -282,9 +318,9 @@ local function admin2()
 
     settppos(pos2[posindex])
     interact(manager.Torso.ProximityPrompt, 1, nil, true)
-    task.wait(1)
+    task.wait(5)
     
-    local usb = Workspace.Map:WaitForChild("USB").Hitbox
+    local usb = Workspace.Map.USB.Hitbox
     settppos(usb.CFrame * CFrame.new(0, -5, 0), true)
     interact(usb.ProximityPrompt)
 end
@@ -303,9 +339,9 @@ local function keycard()
     settppos(keycard.CFrame * CFrame.new(0, -5, 0), true)
     task.wait(5)
     interact(keycard.ProximityPrompt, 0.01)
-    task.wait(1)
+    task.wait(5)
 
-    local keycardkeypad = Workspace:WaitForChild("KeycardKeypad").Hitbox
+    local keycardkeypad = Workspace.KeycardKeypad.Hitbox
     settppos(keycardkeypad.CFrame)
     task.wait(5)
     interact(keycardkeypad.ProximityPrompt, 0.25)
@@ -323,6 +359,7 @@ local function keycard()
 end
 
 local function pulleyitems()
+    local collectiontick = 0
     while task.wait() do
         local found = 0
         for _, v1 in pairs(LocalPlayer.PlayerGui.SG_Package.MainGui.PlayerStats.LocalPlayerStats.info_items.MissionEquipment:GetChildren()) do
@@ -341,15 +378,24 @@ local function pulleyitems()
             interact(prompt, 1, nil, true)
             task.wait(0.5)
         end
+        local collection = 0
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Hooks:GetChildren()) do
+            collection += 1
             process(v1)
         end
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Ropes:GetChildren()) do
+            collection += 1
             process(v1)
         end
-        task.wait(1)
-        settppos()
+        if collection == 0 then
+            collectiontick = tick()
+        elseif tick() - collectiontick >= 10 then
+            warn("possible collection fail")
+            break
+        end
     end
+    task.wait(1)
+    settppos()
 end
 
 local function assemblemekanism()
@@ -359,7 +405,7 @@ local function assemblemekanism()
     interact(door.ProximityPrompt, 5)
     task.wait(2)
 
-    settppos(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -5, 0), true)
+    settppos(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(-180)), true)
 
     local computer = Workspace.mapEntities.missionItems:WaitForChild("StadiumHackLaptop").Keyboard
     interact(computer.ProximityPrompt, 5)
@@ -387,7 +433,8 @@ local function assemblemekanism()
 end
 
 local function leave()
-    local guitar = Workspace.Pulley:WaitForChild("GoldGuitar").missionItem_goldGuitar
+    task.wait(20)
+    local guitar = Workspace.Pulley.GoldGuitar.missionItem_goldGuitar
     settppos(guitar.CFrame * CFrame.new(0, -11, 0), true)
     interact(guitar.ProximityPrompt, 1)
     task.wait(1)
@@ -399,7 +446,20 @@ local function leave()
         local hitbox = locker.Hitbox
         
         settppos(hitbox.CFrame, true)
-        while not lchar:FindFirstChild("HAS COSTUME") do task.wait() end
+        local playerclosetimer = 0
+        while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
+            local playersnotclose = false
+            for _, v1 in pairs(Players:GetPlayers()) do
+                if LocalPlayer:DistanceFromCharacter(v1.Character.PrimaryPart.Position) <= 14 then
+                    playersnotclose = true
+                end
+            end
+            if not playersnotclose and playerclosetimer == 0 then
+                playerclosetimer = tick()
+            elseif not playersnotclose and playerclosetimer ~= 0 and tick() - playerclosetimer >= 10 then
+                VoteReset:FireServer()
+            end
+        end
     end
     while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
         checklocker(Workspace:WaitForChild("GuardLocker1"))
@@ -426,27 +486,31 @@ if weapon and not weapon:FindFirstChild("Melee") then
     task.wait(1)
 end
 
---// do actions and stuff \\--
-task.wait(15)
-rfid()
-task.wait(25)
+xpcall(function()
+    --// do actions and stuff \\--
+    task.wait(5)
+    rfid()
+    task.wait(25)
 
-admin1()
-admin2()
-task.wait(5)
+    admin1()
+    admin2()
+    task.wait(5)
 
-admin3()
-task.wait(20)
-globals.usbcode = (Workspace:FindFirstChild("UseUSBComputer") or Workspace:FindFirstChild("UsedUSBComputer")).Screen.SurfaceGui.TextLabel.Text
-if not tonumber(globals.usbcode) then error("usb code was not found") end
-keycard()
-task.wait(20)
-pulleyitems()
-task.wait(8)
+    admin3()
+    task.wait(20)
+    globals.usbcode = (Workspace:FindFirstChild("UseUSBComputer") or Workspace:FindFirstChild("UsedUSBComputer")).Screen.SurfaceGui.TextLabel.Text
+    if not tonumber(globals.usbcode) then error("usb code was not found") end
+    keycard()
+    task.wait(20)
+    pulleyitems()
+    task.wait(8)
 
-assemblemekanism()
-leave()
---\\ do actions and stuff //--]]
+    assemblemekanism()
+    leave()
+    --\\ do actions and stuff //--]]
+end, function(...)
+    pcall(error, ...)
+end)
 
 task.wait(1)
 CancelInteraction:FireServer()
