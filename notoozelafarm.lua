@@ -1,7 +1,18 @@
 -- made by arealer
 -- took like 3 days to make btw but it works well enough
+-- time for one run if successfully completed: ~4-7 mins
 
 if not game:IsLoaded() then game.Loaded:Wait() end
+
+getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport = getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport
+
+local devtesting = false
+if not devtesting and not getgenv().gl5ry98t47tut983wyg and queueonteleport then
+    getgenv().gl5ry98t47tut983wyg = true
+    local success, content = pcall(readfile, "notoozelafarm.lua")
+    queueonteleport(success and content or [[loadstring(game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoozelafarm.lua", true))()]])
+end
+
 if game.PlaceId ~= 6537140247 then return end
 
 local Players = game:GetService("Players")
@@ -26,25 +37,24 @@ local LookVector = Rep_Remotes:WaitForChild("LookVector")
 local PlayerReady = Rep_Remotes:WaitForChild("PlayerReady")
 local Rep_AssetRemotes = Rep_Assets:WaitForChild("Remotes")
 local HitObject = Rep_AssetRemotes:WaitForChild("HitObject")
-
-getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile = getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile
+local MaskOn = Rep_AssetRemotes:WaitForChild("MaskOn")
 
 local __inst = getgenv().ozelafarminst or 0
 __inst += 1
 getgenv().ozelafarminst = __inst
+local running = true
 --if true then return print("quick exited") end
-
-local devtesting = true
-LocalPlayer.OnTeleport:Connect(function(state)
-    if state == Enum.TeleportState.InProgress and not devtesting then
-        local success, content = pcall(readfile, "ozelafarm.lua")
-        queueonteleport(success and content or [[loadstring(game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoozelafarm.lua", true))()]])
-    end
-end)
 
 local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart)
 end
+
+if not LocalPlayer:GetAttribute("CharacterSpawned") then
+    task.wait(2)
+    PlayerReady:FireServer("Class 1", true)
+end
+while not LocalPlayer:GetAttribute("CharacterSpawned") do task.wait() end
+if getgenv().ozelafarminst ~= __inst then return end
 
 pcall(function()
     local snitcher = LocalPlayer.PlayerScripts.SPS_Package.SnitchSystem
@@ -69,18 +79,14 @@ pcall(function()
     end
 end)
 
-PlayerReady:FireServer("Class 1", true)
-while not LocalPlayer:GetAttribute("CharacterSpawned") do task.wait() end
-if getgenv().ozelafarminst ~= __inst then return end
-
 local lchar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-task.wait(1)
+task.wait(3)
 local lroot = getRoot(lchar)
 local origin = lroot.CFrame
 local tplocation = origin
 
 task.spawn(function()
-    while getgenv().ozelafarminst == __inst and task.wait() do
+    while getgenv().ozelafarminst == __inst and running and task.wait() do
         lroot.CFrame = tplocation * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, (math.random() - 0.5) / 4, 0)
         lroot.Velocity = Vector3.zero
         if math.random(1, 50) == 1 then
@@ -236,22 +242,15 @@ local function admin1()
         interact(prompt, 1)
         task.wait(2)
     end
+    local loops = 0
     while not fail and task.wait() do
-        local totalcollection = 0
         for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
             file(v1)
-            totalcollection += 1
         end
 
-        local collectedamount = 0
-        for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
-            if not v1:FindFirstChildWhichIsA("ProximityPrompt", true) or v1.Name == "_" then
-                collectedamount += 1
-            end
-        end
-        print(totalcollection, collectedamount)
-        if collectedamount ~= totalcollection then
-            warn("possible collection fail")
+        print(loops)
+        if loops >= 2 then
+            warn("possible files collection fail")
             break
         end
     end
@@ -265,22 +264,16 @@ local function admin2()
     local manager
     local posindex
     local managerunmovingtick = 0
-    local managerunmovingrun = false
-    local managerlastpos = Vector3.zero
+    local managermoving = true
     while not manager and task.wait() do
-        if not managerunmovingrun then
+        if managermoving then
             managerunmovingtick = tick()
         end
         
         for _, v1 in pairs(Workspace.Citizens:GetChildren()) do
             if not v1:FindFirstChild("HasUSB") then continue end
 
-            if not managerunmovingrun and (v1.Torso.Position - managerlastpos).Magnitude <= 2 then
-                managerunmovingrun = true
-            else
-                managerlastpos = v1.Torso.Position
-                managerunmovingrun = false
-            end
+            managermoving = not (v1:FindFirstChild("Stationary") and v1.Stationary.Value and v1.Humanoid.TargetPoint == Vector3.zero and v1.Humanoid.WalkToPoint == Vector3.zero)
 
             local passedpos
             for i, p in pairs(pos1) do
@@ -293,7 +286,7 @@ local function admin2()
             break
         end
 
-        if managerunmovingrun and tick() - managerunmovingtick >= 10 then
+        if not managermoving and tick() - managerunmovingtick >= 10 then
             error("manager is not moving")
         end
     end
@@ -327,7 +320,7 @@ end
 
 local function admin3()
     local computer = Workspace.UseUSBComputer
-    settppos(computer.Keyboard.CFrame, true)
+    settppos(computer.Keyboard.CFrame + Vector3.new(0, -5, 0), true)
     task.wait(2)
     interact(computer.Keyboard.ProximityPrompt, 0.5)
     task.wait(2)
@@ -352,14 +345,14 @@ local function keycard()
     task.wait(10)
 
     local guitarcasebutton = Workspace.prop_stadium_caseOpener.stadiumDramaticButton.Main
-    settppos(guitarcasebutton.Position + __tp_offset.Position, true)
+    settppos(guitarcasebutton.Position + Vector3.new(0, -5, 0), true)
     interact(guitarcasebutton.ProximityPrompt)
     task.wait(2)
     settppos()
 end
 
 local function pulleyitems()
-    local collectiontick = 0
+    local loops = 0
     while task.wait() do
         local found = 0
         for _, v1 in pairs(LocalPlayer.PlayerGui.SG_Package.MainGui.PlayerStats.LocalPlayerStats.info_items.MissionEquipment:GetChildren()) do
@@ -378,19 +371,16 @@ local function pulleyitems()
             interact(prompt, 1, nil, true)
             task.wait(0.5)
         end
-        local collection = 0
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Hooks:GetChildren()) do
-            collection += 1
             process(v1)
         end
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Ropes:GetChildren()) do
-            collection += 1
             process(v1)
         end
-        if collection == 0 then
-            collectiontick = tick()
-        elseif tick() - collectiontick >= 10 then
-            warn("possible collection fail")
+
+        print(loops)
+        if loops >= 2 then
+            warn("possible pulley collection fail")
             break
         end
     end
@@ -408,6 +398,7 @@ local function assemblemekanism()
     settppos(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(-180)), true)
 
     local computer = Workspace.mapEntities.missionItems:WaitForChild("StadiumHackLaptop").Keyboard
+    settppos(computer.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(-180)), true)
     interact(computer.ProximityPrompt, 5)
     task.wait(2)
 
@@ -430,10 +421,11 @@ local function assemblemekanism()
     task.wait(1)
     settppos()
     settppos()
+    settppos()
 end
 
 local function leave()
-    task.wait(20)
+    task.wait(30)
     local guitar = Workspace.Pulley.GoldGuitar.missionItem_goldGuitar
     settppos(guitar.CFrame * CFrame.new(0, -11, 0), true)
     interact(guitar.ProximityPrompt, 1)
@@ -466,29 +458,27 @@ local function leave()
         checklocker(Workspace:WaitForChild("GuardLocker2"))
     end
 
-    settppos(Workspace.BagSecuredArea.FloorPart.CFrame + Vector3.new(0, 3, 0), true)
+    settppos(Workspace.BagSecuredArea.FloorPart.Position + Vector3.new(0, 3, 0), true)
     while not Workspace:GetAttribute("EscapeTimer") or Workspace:GetAttribute("EscapeTimer") >= 0.01 do task.wait() end
 end
 
 print("running")
-CancelInteraction:FireServer()
 
 -- auto mask
 if not lchar:FindFirstChild("Mask ON") then
+    task.wait(3)
     keytap(Enum.KeyCode.G)
     task.wait(2)
-end
-
--- equip melee (knife)
-local weapon = getCurrentWeapon()
-if weapon and not weapon:FindFirstChild("Melee") then
-    keytap(Enum.KeyCode.Three)
-    task.wait(1)
+    if not lchar:FindFirstChild("Mask ON") then
+        MaskOn:FireServer(true, "Secondary")
+        MaskOn:FireServer()
+        task.wait(2)
+    end
 end
 
 xpcall(function()
     --// do actions and stuff \\--
-    task.wait(5)
+    task.wait(10)
     rfid()
     task.wait(25)
 
@@ -509,7 +499,7 @@ xpcall(function()
     leave()
     --\\ do actions and stuff //--]]
 end, function(...)
-    pcall(error, ...)
+    pcall(warn, ...)
 end)
 
 task.wait(1)
@@ -520,3 +510,4 @@ print("ended")
 print("globals:")
 table.foreach(globals, print)
 VoteReset:FireServer()
+running = false
