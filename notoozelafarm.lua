@@ -6,7 +6,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport = getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport
 
-local devtesting = false
+local devtesting = true
 if not devtesting and not getgenv().gl5ry98t47tut983wyg and queueonteleport then
     getgenv().gl5ry98t47tut983wyg = true
     local success, content = pcall(readfile, "notoozelafarm.lua")
@@ -35,6 +35,8 @@ local UseKeypad = Rep_Remotes:WaitForChild("UseKeypad")
 local SnitchRemote = Rep_Remotes:WaitForChild("SnitchRemote")
 local LookVector = Rep_Remotes:WaitForChild("LookVector")
 local PlayerReady = Rep_Remotes:WaitForChild("PlayerReady")
+local updateSecondaryObj = Rep_Remotes:WaitForChild("updateSecondaryObj")
+local Narration = Rep_Remotes:WaitForChild("Narration")
 local Rep_AssetRemotes = Rep_Assets:WaitForChild("Remotes")
 local HitObject = Rep_AssetRemotes:WaitForChild("HitObject")
 local MaskOn = Rep_AssetRemotes:WaitForChild("MaskOn")
@@ -42,8 +44,8 @@ local MaskOn = Rep_AssetRemotes:WaitForChild("MaskOn")
 local __inst = getgenv().ozelafarminst or 0
 __inst += 1
 getgenv().ozelafarminst = __inst
-local running = true
 --if true then return print("quick exited") end
+local running = true
 
 local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart)
@@ -79,24 +81,27 @@ pcall(function()
     end
 end)
 
+local mainthread: thread
+
 local lchar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-task.wait(3)
 local lroot = getRoot(lchar)
-local origin = lroot.CFrame
+local origin = CFrame.new(0, 0, 0)--lroot.CFrame
 local tplocation = origin
 
 task.spawn(function()
+    local alarmtrigger = 0
     while getgenv().ozelafarminst == __inst and running and task.wait() do
         lroot.CFrame = tplocation * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, (math.random() - 0.5) / 4, 0)
         lroot.Velocity = Vector3.zero
         if math.random(1, 50) == 1 then
             LookVector:FireServer(lroot.Position + (Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1) * 120))
         end
-        if ReplicatedStorage.PointOfNoReturn:GetAttribute("Active") then
+        if ReplicatedStorage.PointOfNoReturn:GetAttribute("Active") and tick() - alarmtrigger >= 5 then
             VoteReset:FireServer()
-            return
+            alarmtrigger = tick()
         end
     end
+    pcall(coroutine.close, mainthread)
 end)
 
 local __tp_offset = CFrame.new(0, 0, 3)
@@ -130,6 +135,20 @@ local function damageTarget(target)
     end
 end
 
+local __onclientwaitnil = {}
+local function onclientwait(event, ...)
+    local args = {...}
+    while task.wait() do
+        local ev = {event.OnClientEvent:Wait()}
+        for i, v in pairs(args) do
+            if v == ev[i] or (ev[i] == __onclientwaitnil and v == nil) then
+                return table.unpack(ev)
+            end
+        end
+    end
+    return
+end
+
 local function keypress(isPressed, keycode)
     VirtualInputManager:SendKeyEvent(isPressed, keycode, false, nil)
 end
@@ -138,28 +157,63 @@ local function keytap(keycode)
     keypress(false, keycode)
 end
 
+if getgenv().ngfty564y545y4 then getgenv().ngfty564y545y4:Disconnect() end
+local __voteresetamount = 0
+getgenv().ngfty564y545y4 = VoteReset.OnClientEvent:Connect(function(votes, player)
+    __voteresetamount += 1
+    if __voteresetamount >= 6 and player ~= LocalPlayer then
+        VoteReset:FireServer()
+    end
+end)
+
+local __interactionfailedcallback = nil
+if getgenv().kjkjtrdu9t85u4e988 then getgenv().kjkjtrdu9t85u4e988:Disconnect() end
+getgenv().kjkjtrdu9t85u4e988 = CancelInteraction.OnClientEvent:Connect(function(...)
+    if __interactionfailedcallback then
+        __interactionfailedcallback(...)
+    end
+end)
+
 local __interacting = false
-local function interact(prompt: ProximityPrompt, waittime, async, ignoredistance)
+local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
     waittime = (waittime or 0) + 0.4
     while __interacting do task.wait() end
     __interacting = true
-    StartInteraction:FireServer(prompt)
 
+    local failed = 0
     local running = true
+    local cancel = false
     if not ignoredistance then
         task.spawn(function()
             while running and RunService.PreRender:Wait() do
                 local lchar = LocalPlayer.Character
                 local lroot = getRoot(lchar)
                 local promptposition = nil
+
+                if not prompt or not prompt:IsDescendantOf(Workspace) then
+                    failed = 1
+                    running = false
+                    return
+                end
+                
                 if prompt.Parent then
                     if prompt.Parent:IsA("BasePart") then
                         promptposition = prompt.Parent.Position
+                    elseif prompt.Parent:IsA("Model") then
+                        promptposition = prompt.Parent:GetPivot().Position
                     end
                 end
+
                 if promptposition and (promptposition - lroot.Position).Magnitude >= prompt.MaxActivationDistance + 2 then
                     CancelInteraction:FireServer(prompt)
                     running = false
+                    failed = 2
+                end
+
+                if cancel then
+                    CancelInteraction:FireServer(prompt)
+                    running = false
+                    failed = 3
                 end
             end
         end)
@@ -167,20 +221,74 @@ local function interact(prompt: ProximityPrompt, waittime, async, ignoredistance
 
     local function trigger()
         if not running then
-            __interacting = false
-            error("interaction failed")
+            return
         end
         CompleteInteraction:FireServer(prompt)
         task.wait(0.1)
         running = false
-        __interacting = false
     end
-    if async then
+
+    local function startinteraction()
+        StartInteraction:FireServer(prompt)
         task.delay(waittime, trigger)
-    else
-        task.wait(waittime)
-        trigger()
     end
+
+    __interactionfailedcallback = function(v1)
+        if v1 == prompt then
+            warn("failed interaction")
+            CancelInteraction:FireServer()
+            task.wait(0.5)
+            startinteraction()
+        end
+    end
+
+    local donebind = Instance.new("BindableEvent")
+    local ret_tbl = {}
+
+    local function ret(success, ...)
+        table.clear(ret_tbl)
+        for i, v in pairs({success, ...}) do
+            ret_tbl[i] = v
+        end
+
+        return donebind:Fire(success, ...)
+    end
+
+    local function run()
+        startinteraction()
+        while running do task.wait() end
+        __interacting = false
+        __interactionfailedcallback = nil
+
+        if failed == 1 then
+            return ret(false, "interaction prompt gone")
+        elseif failed == 2 then
+            return ret(false, "interaction too far")
+        elseif failed == 3 then
+            return ret(false, "interaction cancelled")
+        end
+
+        task.delay(0.1, donebind.Destroy, donebind)
+        return ret(true)
+    end
+
+    task.spawn(run)
+    
+    return function()
+        local ret = {donebind.Event:Wait()}
+        if table.remove(ret, 1) then
+            return table.unpack(ret)
+        else
+            error(table.unpack(ret))
+        end
+    end, function()
+        cancel = true
+        while running do task.wait() end
+    end, ret_tbl
+end
+local function interact(prompt, waittime, ignoredistance)
+    local fwait = _interact(prompt, waittime, ignoredistance)
+    return fwait()
 end
 
 local globals = {}
@@ -237,13 +345,20 @@ local function admin1()
         local prompt = v1:FindFirstChildWhichIsA("ProximityPrompt", true)
         if v1.Name == "_" then fail = true; return end
         if not prompt then return end
-        settppos(prompt.Parent.CFrame * CFrame.new(0, -7, 0), true)
+        settppos(prompt.Parent.CFrame * CFrame.new(0, -6, 0), true)
         task.wait(1)
-        interact(prompt, 1)
+        local fwait, fcancel, ret = _interact(prompt, 1)
+        while not ret[1] and task.wait() do
+            if v1.Name == "_" then
+                fcancel()
+                break
+            end
+        end
         task.wait(2)
     end
     local loops = 0
     while not fail and task.wait() do
+        loops += 1
         for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
             file(v1)
         end
@@ -289,11 +404,13 @@ local function admin2()
         if not managermoving and tick() - managerunmovingtick >= 10 then
             error("manager is not moving")
         end
+
+        if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
     end
 
     task.wait(1)
     
-    settppos(manager.Torso.CFrame)
+    settppos(manager.Torso.CFrame + Vector3.new(0, -5, 0), true)
     task.wait(0.4)
 
     if manager.Name == "Citizen" then
@@ -310,11 +427,11 @@ local function admin2()
     end
 
     settppos(pos2[posindex])
-    interact(manager.Torso.ProximityPrompt, 1, nil, true)
+    interact(manager.Torso.ProximityPrompt, 1, true)
     task.wait(5)
     
     local usb = Workspace.Map.USB.Hitbox
-    settppos(usb.CFrame * CFrame.new(0, -5, 0), true)
+    settppos(usb.CFrame + Vector3.new(0, -5, 0), true)
     interact(usb.ProximityPrompt)
 end
 
@@ -329,17 +446,20 @@ end
 
 local function keycard()
     local keycard = Workspace.Map.KeyCard.InteractionPart
-    settppos(keycard.CFrame * CFrame.new(0, -5, 0), true)
+    settppos(keycard.CFrame + Vector3.new(0, -5, 0), true)
     task.wait(5)
     interact(keycard.ProximityPrompt, 0.01)
     task.wait(5)
 
+    onclientwait(updateSecondaryObj, "")
+    task.wait(1)
     local keycardkeypad = Workspace.KeycardKeypad.Hitbox
     settppos(keycardkeypad.CFrame)
     task.wait(5)
     interact(keycardkeypad.ProximityPrompt, 0.25)
 
     task.wait(1)
+    settppos()
     UseKeypad:FireServer(globals.usbcode, keycardkeypad)
 
     task.wait(10)
@@ -354,21 +474,13 @@ end
 local function pulleyitems()
     local loops = 0
     while task.wait() do
-        local found = 0
-        for _, v1 in pairs(LocalPlayer.PlayerGui.SG_Package.MainGui.PlayerStats.LocalPlayerStats.info_items.MissionEquipment:GetChildren()) do
-            if v1.Name == "Hook" or v1.Name == "Rope" then
-                found += 1
-            end
-        end
-        if found == 2 then
-            break
-        end
+        loops += 1
         local function process(v1)
             task.wait(0.5)
             local prompt = v1.PrimaryPart.ProximityPrompt
             settppos(v1.PrimaryPart.CFrame + Vector3.new(0, -7, 0), true)
             task.wait(1)
-            interact(prompt, 1, nil, true)
+            interact(prompt, 1, true)
             task.wait(0.5)
         end
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Hooks:GetChildren()) do
@@ -383,23 +495,26 @@ local function pulleyitems()
             warn("possible pulley collection fail")
             break
         end
+
+        if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
     end
     task.wait(1)
     settppos()
 end
 
 local function assemblemekanism()
-    local door = Workspace.Map.ObjectivePickDoor1.Door.DoorOpenPart
-    settppos(door.CFrame * CFrame.new(0, -5, 0), true)
+    local door = Workspace.Map.ObjectivePickDoor1:WaitForChild("Door", 10).DoorOpenPart
+    task.wait(2)
+    settppos(door.CFrame + Vector3.new(0, -5, 0), true)
     task.wait(1)
     interact(door.ProximityPrompt, 5)
     task.wait(2)
 
-    settppos(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(-180)), true)
+    settppos(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -7, 0), true)
 
-    local computer = Workspace.mapEntities.missionItems:WaitForChild("StadiumHackLaptop").Keyboard
-    settppos(computer.CFrame * CFrame.new(0, -5, 0) * CFrame.Angles(0, 0, math.rad(-180)), true)
-    interact(computer.ProximityPrompt, 5)
+    local computer = Workspace.mapEntities.missionItems:WaitForChild("StadiumHackLaptop", 10).Keyboard
+    settppos(computer.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -7, 0), true)
+    interact(computer.ProximityPrompt, 5, true)
     task.wait(2)
 
     if Workspace:FindFirstChild("AssemblePulleyRope") then
@@ -418,15 +533,13 @@ local function assemblemekanism()
     local activate = Workspace.PulleyLever.Hitbox
     settppos(activate.CFrame * CFrame.new(0, 0, -2), true)
     interact(activate.ProximityPrompt, 1)
-    task.wait(1)
-    settppos()
-    settppos()
-    settppos()
+    task.wait(2)
+    settppos(origin, true)
 end
 
 local function leave()
-    task.wait(30)
-    local guitar = Workspace.Pulley.GoldGuitar.missionItem_goldGuitar
+    local guitar = Workspace.Pulley:WaitForChild("GoldGuitar", 40).missionItem_goldGuitar
+    task.wait(2)
     settppos(guitar.CFrame * CFrame.new(0, -11, 0), true)
     interact(guitar.ProximityPrompt, 1)
     task.wait(1)
@@ -442,24 +555,26 @@ local function leave()
         while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
             local playersnotclose = false
             for _, v1 in pairs(Players:GetPlayers()) do
-                if LocalPlayer:DistanceFromCharacter(v1.Character.PrimaryPart.Position) <= 14 then
+                if LocalPlayer:DistanceFromCharacter(getRoot(v1.Character).Position) >= 14 then
                     playersnotclose = true
                 end
             end
-            if not playersnotclose and playerclosetimer == 0 then
+
+            if playersnotclose and playerclosetimer ~= 0 and tick() - playerclosetimer >= 10 then
+                error("couldnt trigger guard locker")
+            elseif not playersnotclose and playerclosetimer == 0 then
                 playerclosetimer = tick()
-            elseif not playersnotclose and playerclosetimer ~= 0 and tick() - playerclosetimer >= 10 then
-                VoteReset:FireServer()
             end
+
+            if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
         end
     end
-    while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
-        checklocker(Workspace:WaitForChild("GuardLocker1"))
-        checklocker(Workspace:WaitForChild("GuardLocker2"))
-    end
+    task.wait(30)
+    checklocker(Workspace:WaitForChild("GuardLocker1", 10))
+    checklocker(Workspace:WaitForChild("GuardLocker2", 10))
 
     settppos(Workspace.BagSecuredArea.FloorPart.Position + Vector3.new(0, 3, 0), true)
-    while not Workspace:GetAttribute("EscapeTimer") or Workspace:GetAttribute("EscapeTimer") >= 0.01 do task.wait() end
+    while lchar and lchar:IsDescendantOf(Workspace) do task.wait() end
 end
 
 print("running")
@@ -476,7 +591,7 @@ if not lchar:FindFirstChild("Mask ON") then
     end
 end
 
-xpcall(function()
+mainthread = coroutine.create(function()
     --// do actions and stuff \\--
     task.wait(10)
     rfid()
@@ -493,17 +608,29 @@ xpcall(function()
     keycard()
     task.wait(20)
     pulleyitems()
-    task.wait(8)
+    task.wait(1)
 
     assemblemekanism()
     leave()
     --\\ do actions and stuff //--]]
-end, function(...)
-    pcall(warn, ...)
+    error("exit main thread")
 end)
 
+coroutine.resume(mainthread)
+while task.wait() do
+    local issue = true
+    local state = coroutine.status(mainthread)
+    if state == "running" or state == "suspended" then
+        issue = false
+    end
+    if issue then
+        print("main thread", state)
+        break
+    end
+end
+
 task.wait(1)
-CancelInteraction:FireServer()
+__interactionfailedcallback = nil
 
 settppos(origin, true)
 print("ended")
