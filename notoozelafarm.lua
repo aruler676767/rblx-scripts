@@ -51,12 +51,16 @@ local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso") or char.PrimaryPart)
 end
 
+local function loopcheck()
+    if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
+end
+
 if not LocalPlayer:GetAttribute("CharacterSpawned") then
     task.wait(2)
     PlayerReady:FireServer("Class 1", true)
 end
 while not LocalPlayer:GetAttribute("CharacterSpawned") do task.wait() end
-if getgenv().ozelafarminst ~= __inst then return end
+loopcheck()
 
 pcall(function()
     local snitcher = LocalPlayer.PlayerScripts.SPS_Package.SnitchSystem
@@ -77,7 +81,9 @@ pcall(function()
         success = true
     end
     if not success then
-        warn("couldnt disable snitch system")
+        warn("couldnt disable snitch system; using more detectable methods")
+        Instance.new("LocalScript", snitcher.Parent).Name = snitcher.Name
+        snitcher:Destroy()
     end
 end)
 
@@ -181,18 +187,18 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
     __interacting = true
 
     local failed = 0
-    local running = true
+    local active = true
     local cancel = false
     if not ignoredistance then
         task.spawn(function()
-            while running and RunService.PreRender:Wait() do
+            while active and RunService.PreRender:Wait() do
                 local lchar = LocalPlayer.Character
                 local lroot = getRoot(lchar)
                 local promptposition = nil
 
                 if not prompt or not prompt:IsDescendantOf(Workspace) then
-                    failed = 1
-                    running = false
+                    --failed = 1
+                    active = false
                     return
                 end
                 
@@ -206,13 +212,13 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
 
                 if promptposition and (promptposition - lroot.Position).Magnitude >= prompt.MaxActivationDistance + 2 then
                     CancelInteraction:FireServer(prompt)
-                    running = false
+                    active = false
                     failed = 2
                 end
 
                 if cancel then
                     CancelInteraction:FireServer(prompt)
-                    running = false
+                    active = false
                     failed = 3
                 end
             end
@@ -220,12 +226,12 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
     end
 
     local function trigger()
-        if not running then
+        if not active then
             return
         end
         CompleteInteraction:FireServer(prompt)
         task.wait(0.1)
-        running = false
+        active = false
     end
 
     local function startinteraction()
@@ -256,7 +262,7 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
 
     local function run()
         startinteraction()
-        while running do task.wait() end
+        while active do task.wait() end
         __interacting = false
         __interactionfailedcallback = nil
 
@@ -283,7 +289,7 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
         end
     end, function()
         cancel = true
-        while running do task.wait() end
+        while active do task.wait() end
     end, ret_tbl
 end
 local function interact(prompt, waittime, ignoredistance)
@@ -374,8 +380,8 @@ end
 
 local function admin2()
     local pos1 = { Vector3.new(52.7, 51, -136.5) }
-    local pos2 = { Vector3.new(46, 51, -123) }
-    settppos(pos2[1], true)
+    local pos2 = { {Vector3.new(47, 51, -120), Vector3.new(82, 60, -123)} }
+    settppos(pos2[1][1], true)
     local manager
     local posindex
     local managerunmovingtick = 0
@@ -405,7 +411,7 @@ local function admin2()
             error("manager is not moving")
         end
 
-        if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
+        loopcheck()
     end
 
     task.wait(1)
@@ -419,16 +425,18 @@ local function admin2()
     end
     if manager.Name == "CitizenHostage" then
         interact(manager.Torso.ProximityPrompt, 2)
-        task.wait(1)
+        task.wait(0.6)
     end
     if manager.Name == "CitizenTied" then
         interact(manager.Torso.ProximityPrompt, 1)
         task.wait(1)
     end
 
-    settppos(pos2[posindex])
+    settppos(pos2[posindex][1])
+    task.wait(2)
+    settppos(pos2[posindex][2])
+    task.wait(6)
     interact(manager.Torso.ProximityPrompt, 1, true)
-    task.wait(5)
     
     local usb = Workspace.Map.USB.Hitbox
     settppos(usb.CFrame + Vector3.new(0, -5, 0), true)
@@ -451,7 +459,6 @@ local function keycard()
     interact(keycard.ProximityPrompt, 0.01)
     task.wait(5)
 
-    onclientwait(updateSecondaryObj, "")
     task.wait(1)
     local keycardkeypad = Workspace.KeycardKeypad.Hitbox
     settppos(keycardkeypad.CFrame)
@@ -496,12 +503,13 @@ local function pulleyitems()
             break
         end
 
-        if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
+        loopcheck()
     end
     task.wait(1)
     settppos()
 end
 
+local guitarhidepos = Vector3.new(672.7, 102, 70.75)
 local function assemblemekanism()
     local door = Workspace.Map.ObjectivePickDoor1:WaitForChild("Door", 10).DoorOpenPart
     task.wait(2)
@@ -527,32 +535,33 @@ local function assemblemekanism()
         local assemble = Workspace.AssemblePulleyHook.Hitbox
         settppos(assemble.CFrame * CFrame.new(0, 0, -2), true)
         interact(assemble.ProximityPrompt, 3)
-        task.wait(1)
+        task.wait(2)
     end
 
     local activate = Workspace.PulleyLever.Hitbox
     settppos(activate.CFrame * CFrame.new(0, 0, -2), true)
     interact(activate.ProximityPrompt, 1)
     task.wait(2)
-    settppos(origin, true)
+    settppos(guitarhidepos, true)
 end
 
 local function leave()
     local guitar = Workspace.Pulley:WaitForChild("GoldGuitar", 40).missionItem_goldGuitar
-    task.wait(2)
+    task.wait(20)
     settppos(guitar.CFrame * CFrame.new(0, -11, 0), true)
     interact(guitar.ProximityPrompt, 1)
-    task.wait(1)
-    settppos(origin, true)
+    task.wait(2)
+    settppos(guitarhidepos, true)
 
     local function checklocker(locker)
         if not locker or not locker:FindFirstChild("Highlight_[]") then return end
 
         local hitbox = locker.Hitbox
         
-        settppos(hitbox.CFrame, true)
         local playerclosetimer = 0
         while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
+            settppos(hitbox.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, 2, 0), true)
+
             local playersnotclose = false
             for _, v1 in pairs(Players:GetPlayers()) do
                 if LocalPlayer:DistanceFromCharacter(getRoot(v1.Character).Position) >= 14 then
@@ -566,18 +575,27 @@ local function leave()
                 playerclosetimer = tick()
             end
 
-            if getgenv().ozelafarminst ~= __inst then error("new instance exists, stopping..") end
+            loopcheck()
+
+            settppos(hitbox.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, -2, 0), true)
         end
     end
-    task.wait(30)
-    checklocker(Workspace:WaitForChild("GuardLocker1", 10))
-    checklocker(Workspace:WaitForChild("GuardLocker2", 10))
+    local start = tick()
+    while not lchar:FindFirstChild("HAS COSTUME") and tick() - start <= 60 and task.wait() do
+        checklocker(Workspace:FindFirstChild("GuardLocker1"))
+        checklocker(Workspace:FindFirstChild("GuardLocker2"))
+        loopcheck()
+    end
 
-    settppos(Workspace.BagSecuredArea.FloorPart.Position + Vector3.new(0, 3, 0), true)
-    while lchar and lchar:IsDescendantOf(Workspace) do task.wait() end
+    while lchar and lchar:IsDescendantOf(Workspace) and task.wait() do
+        settppos(Workspace.BagSecuredArea.FloorPart.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, 2, 0), true)
+        task.wait(3)
+        settppos(Workspace.BagSecuredArea.FloorPart.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(11, 2, 0), true)
+        loopcheck()
+    end
 end
 
-print("running")
+print("setup")
 
 -- auto mask
 if not lchar:FindFirstChild("Mask ON") then
@@ -591,7 +609,23 @@ if not lchar:FindFirstChild("Mask ON") then
     end
 end
 
-mainthread = coroutine.create(function()
+local function createThread(fn)
+	return coroutine.create(function()
+		xpcall(fn, function(err)
+			local lines = string.split(debug.traceback(nil, 2), "\n")
+			for i, v in pairs(lines) do
+				if v == "" then continue end
+				local name, line = table.unpack(string.split(v, ":"))
+				lines[i] = "    Script '" .. name .. "', Line " .. line
+			end
+
+			warn(err .. "\n    Stack Begin\n" .. table.concat(lines, "\n") .. "    Stack End")
+		end)
+	end)
+end
+
+mainthread = createThread(function()
+    print("running")
     --// do actions and stuff \\--
     task.wait(10)
     rfid()
@@ -615,8 +649,8 @@ mainthread = coroutine.create(function()
     --\\ do actions and stuff //--]]
     error("exit main thread")
 end)
-
 coroutine.resume(mainthread)
+
 while task.wait() do
     local issue = true
     local state = coroutine.status(mainthread)
