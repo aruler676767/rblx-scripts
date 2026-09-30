@@ -1,19 +1,6 @@
 -- made by arealer
--- took like 3 days to make btw but it works well enough
+-- took like 3 days then like 3 extra to refine it to make btw but it works well enough
 -- time for one run if successfully completed: ~4-7 mins
-
-if not game:IsLoaded() then game.Loaded:Wait() end
-
-getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport = getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport
-
-local devtesting = true
-if not devtesting and not getgenv().gl5ry98t47tut983wyg and queueonteleport then
-    getgenv().gl5ry98t47tut983wyg = true
-    local success, content = pcall(readfile, "notoozelafarm.lua")
-    queueonteleport(success and content or [[loadstring(game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoozelafarm.lua", true))()]])
-end
-
-if game.PlaceId ~= 6537140247 then return end
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +9,39 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+
+getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport, makefolder =
+getgenv, firesignal, replicatesignal, hookmetamethod, getnamecallmethod, getscriptthread, readfile, queueonteleport, makefolder
+
+local Lobby = {
+    Mission = "The Ozela Heist",
+    Difficulty = "Nightmare",
+    Tactic = "STEALTH",
+    Players = {},
+    Size = 1,
+    Public = false,
+}
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local __inst = getgenv().ozelafarminst or 0
+__inst += 1
+getgenv().ozelafarminst = __inst
+
+makefolder("arealer/notoriety")
+
+local devtesting = true
+if not devtesting and not getgenv().gl5ry98t47tut983wyg and queueonteleport then
+    getgenv().gl5ry98t47tut983wyg = true
+    local success, content = pcall(readfile, "arealer/notoriety/notoozelafarm.lua")
+    queueonteleport(success and content or [[loadstring(game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoozelafarm.lua", true))()]])
+end
+
+if game.PlaceId == 21532277 then
+    local success, content = pcall(readfile, "arealer/notoriety/notoautoqueue.lua")
+    loadstring(success and content or game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoautoqueue.lua"))(Lobby, "ozelafarminst", __inst)
+end
+if game.PlaceId ~= 6537140247 then return end
 
 local Rep_RS_Package = ReplicatedStorage:WaitForChild("RS_Package")
 local Rep_Remotes = Rep_RS_Package:WaitForChild("Remotes")
@@ -41,9 +61,6 @@ local Rep_AssetRemotes = Rep_Assets:WaitForChild("Remotes")
 local HitObject = Rep_AssetRemotes:WaitForChild("HitObject")
 local MaskOn = Rep_AssetRemotes:WaitForChild("MaskOn")
 
-local __inst = getgenv().ozelafarminst or 0
-__inst += 1
-getgenv().ozelafarminst = __inst
 --if true then return print("quick exited") end
 local running = true
 
@@ -56,7 +73,6 @@ local function loopcheck()
 end
 
 if not LocalPlayer:GetAttribute("CharacterSpawned") then
-    task.wait(2)
     PlayerReady:FireServer("Class 1", true)
 end
 while not LocalPlayer:GetAttribute("CharacterSpawned") do task.wait() end
@@ -587,7 +603,8 @@ local function leave()
         loopcheck()
     end
 
-    while lchar and lchar:IsDescendantOf(Workspace) and task.wait() do
+    start = tick()
+    while tick() - start <= 10 + (Players:GetChildren() > 1 and 90 or 0) and lchar and lchar:IsDescendantOf(Workspace) and task.wait() do
         settppos(Workspace.BagSecuredArea.FloorPart.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, 2, 0), true)
         task.wait(3)
         settppos(Workspace.BagSecuredArea.FloorPart.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(11, 2, 0), true)
