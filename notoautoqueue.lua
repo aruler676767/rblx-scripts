@@ -16,7 +16,7 @@ local lobby = ReplicatedStorage.MakeLobby:InvokeServer(
     Lobby.Difficulty,
     3,
     Lobby.Public and "EVERYONE" or "FRIENDS ONLY",
-    Lobby.Mission,
+    Lobby.Tactic,
     true,
     false,
     Lobby.Size,
