@@ -1,7 +1,7 @@
 local args = {...}
-local key = args[1]
-local inst = args[2]
-local Lobby = args[3]
+local Lobby = args[1]
+local key = args[2]
+local inst = args[3]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -46,7 +46,7 @@ while task.wait(0.4) do
             canstart = false
         end
     end
-    if getgenv()[key] ~= inst then
+    if key and inst and getgenv()[key] ~= inst then
         ReplicatedStorage.LeaveLobby:FireServer(lobby)
         return
     end
