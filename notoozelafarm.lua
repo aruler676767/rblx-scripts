@@ -1,6 +1,7 @@
 --[[
     made by arealer
-    time for one run if completed: ~4-7 mins
+    time for one run if completed: ~2-3 mins
+    success rate: ~90%
 
     took like 3 days then like 3 extra to refine it to make btw but it works well enough
         - about 3 weeks later i remade it with tweens as i discovered why it was getting flagged (teleporting too far too quickly)
@@ -40,7 +41,7 @@ if not devtesting and not getgenv().gl5ry98t47tut983wyg and queueonteleport then
     queueonteleport(success and content or [[loadstring(game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoozelafarm.lua", true))()]])
 end
 
-if game.PlaceId == 21532277 then
+if not devtesting and game.PlaceId == 21532277 then
     local success, content = pcall(readfile, "notoautoqueue.lua")
     loadstring(success and content or game:HttpGet("https://raw.githubusercontent.com/aruler676767/rblx-scripts/refs/heads/main/notoautoqueue.lua"))(Lobby, "ozelafarminst", __inst)
 end
@@ -59,6 +60,7 @@ local SnitchRemote = Rep_Remotes:WaitForChild("SnitchRemote")
 local LookVector = Rep_Remotes:WaitForChild("LookVector")
 local PlayerReady = Rep_Remotes:WaitForChild("PlayerReady")
 local PlayerYell = Rep_Remotes:WaitForChild("PlayerYell")
+local Detected = Rep_Remotes:WaitForChild("Detected")
 local Rep_AssetRemotes = Rep_Assets:WaitForChild("Remotes")
 local HitObject = Rep_AssetRemotes:WaitForChild("HitObject")
 local MaskOn = Rep_AssetRemotes:WaitForChild("MaskOn")
@@ -115,8 +117,12 @@ tplocation.Value = origin
 local setvelocity = Vector3.zero
 
 task.spawn(function()
+    local caughtEvent = Detected.OnClientEvent:Connect(function(message)
+        warn("failed due to alarm:", message)
+    end)
+
     local alarmtrigger = 0
-    while getgenv().ozelafarminst == __inst and running and task.wait() do
+    while getgenv().ozelafarminst == __inst and running and RunService.PostSimulation:Wait() do
         lroot.CFrame = tplocation.Value * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, (math.random() - 0.5) / 4, 0)
         lroot.Velocity = setvelocity
         if math.random(1, 50) == 1 then
@@ -129,7 +135,9 @@ task.spawn(function()
             end
             alarmtrigger = tick()
         end
+        lroot.Velocity = Vector3.zero
     end
+    caughtEvent:Disconnect()
 end)
 
 local function toCFrame(v: CFrame | Vector3 | vector)
@@ -151,7 +159,7 @@ local function settppos(pos, dontuseoffset)
     tplocation.Value = toCFrame(pos) * offset
 end
 
-local twn_speed = 40
+local twn_speed = 75
 local __last_twn = nil
 local function ctwn(cf, speed)
     cf = toCFrame(cf)
@@ -178,6 +186,7 @@ local function hctwn(cf, height, speed)
         ctwn(CFrame.new(cf.X, height, cf.Z), speed)
     end
     ctwn(cf, speed)
+    task.wait(0.2) -- make sure roblox replicates the shit
 end
 
 local function getCurrentWeapon()
@@ -283,6 +292,7 @@ local function _interact(prompt: ProximityPrompt, waittime, ignoredistance)
 
     __interactionfailedcallback = function(v1)
         if v1 == prompt then
+    task.wait(1)
             warn("failed interaction")
             CancelInteraction:FireServer()
             task.wait(0.5)
@@ -349,6 +359,38 @@ end
 
 local globals = {}
 
+local function admin1()
+    local manager
+    while not manager and task.wait() do
+        for _, v1 in pairs(Workspace.Citizens:GetChildren()) do
+            if not v1:FindFirstChild("HasUSB") then continue end
+            manager = v1
+            break
+        end
+        loopcheck()
+    end
+
+    task.spawn(function()
+        local t = {manager}
+        task.wait(2)
+        while manager and manager:IsDescendantOf(game) and task.wait(0.1) do
+            PlayerYell:FireServer(t)
+            manager.Torso.CFrame = CFrame.new(0, 0, 0)
+            manager.Torso.Velocity = Vector3.new(0, 9e15, 0)
+        end
+    end)
+
+    setvelocity = Vector3.new(0, 9e15, 0)
+    ctwn(manager.Torso.Position + Vector3.new(0, -3, 0)) -- set timing
+
+    task.wait(2)
+    setvelocity = Vector3.zero
+
+    local usb = Workspace.Map.USB.Hitbox
+    ctwn(usb.CFrame + Vector3.new(0, -5, 0))
+    interact(usb.ProximityPrompt)
+end
+
 local function rfid()
     local cardreader = Workspace.prop_stadium_cardReader
     do
@@ -358,7 +400,7 @@ local function rfid()
             interact(_part.ProximityPrompt, 0.5)
 
             settppos()
-            task.wait(7)
+            task.wait(3)
         end
     end
 
@@ -396,125 +438,24 @@ local function rfid()
     hctwn(Vector3.new(107, 26, -214), 10)
 end
 
-local function admin1()
-    local fail = false
-    local function file(v1)
-        local prompt = v1:FindFirstChildWhichIsA("ProximityPrompt", true)
-        if v1.Name == "_" then fail = true; return end
-        if not prompt then return end
-        hctwn(prompt.Parent.CFrame * CFrame.new(0, -6, 0), 10)
-        task.wait(1)
-        local fwait, fcancel, ret = _interact(prompt, 1)
-        while not ret[1] and task.wait() do
-            if v1.Name == "_" then
-                fcancel()
-                break
-            end
-        end
-    end
-    local loops = 0
-    while not fail and task.wait() do
-        loops += 1
-        for _, v1 in pairs(Workspace.PhoneFiles2:GetChildren()) do
-            file(v1)
-        end
-
-        print(loops)
-        if loops >= 4 then
-            warn("possible files collection fail")
-            break
-        end
-    end
-    task.wait(1)
-end
-
 local function admin2()
-    local pos1 = { Vector3.new(52.7, 51, -136.5) }
-    local pos2 = { Vector3.new(47, 51, -120) }
-    hctwn(pos2[1], 10)
-    local manager
-    local posindex
-    local managerunmovingtick = 0
-    local managermoving = true
-    while not manager and task.wait() do
-        if managermoving then
-            managerunmovingtick = tick()
-        end
-
-        for _, v1 in pairs(Workspace.Citizens:GetChildren()) do
-            if not v1:FindFirstChild("HasUSB") then continue end
-
-            managermoving = not (v1:FindFirstChild("Stationary") and v1.Stationary.Value and v1.Humanoid.TargetPoint == Vector3.zero and v1.Humanoid.WalkToPoint == Vector3.zero)
-
-            local passedpos
-            for i, p in pairs(pos1) do
-                if (v1.PrimaryPart.Position - p).Magnitude <= 5 then passedpos = i end
-            end
-            if not passedpos then continue end
-
-            manager = v1
-            posindex = passedpos
-            break
-        end
-
-        if not managermoving and tick() - managerunmovingtick >= 10 then
-            error("manager is not moving")
-        end
-
-        loopcheck()
-    end
-
-    task.wait(1)
-    ctwn(manager.Torso.CFrame + Vector3.new(0, -5, 0))
-    task.wait(0.8)
-
-    PlayerYell:FireServer({manager})
-    task.wait(2)
-    interact(manager.Torso.ProximityPrompt, 1)
-    task.wait(1)
-    interact(manager.Torso.ProximityPrompt, 1)
-    task.wait(1)
-
-    ctwn(pos2[posindex])
-    task.wait(2)
-    interact(manager.Torso.ProximityPrompt, 1, true)
-
-    task.wait(1)
-
-    local usb = Workspace.Map.USB.Hitbox
-    ctwn(usb.CFrame + Vector3.new(0, -5, 0))
-    interact(usb.ProximityPrompt)
-end
-
-local function admin3()
-    local computer = Workspace:WaitForChild("UseUSBComputer", 6)
+    local computer = Workspace:WaitForChild("UseUSBComputer", 20)
     hctwn(computer.Keyboard.CFrame + Vector3.new(0, -5, 0), 10)
-    task.wait(2)
     interact(computer.Keyboard.ProximityPrompt, 0.5)
-    task.wait(2)
+    task.wait(1)
     settppos()
 end
 
 local function keycard()
     local keycard = Workspace.Map:WaitForChild("KeyCard", 6).InteractionPart
     hctwn(keycard.CFrame + Vector3.new(0, -5, 0), -40)
-    task.wait(5)
     interact(keycard.ProximityPrompt, 0.01)
-    task.wait(5)
-
-    task.wait(1)
-    local keycardkeypad = Workspace.KeycardKeypad.Hitbox
-    hctwn(keycardkeypad.CFrame, -50)
+    
+    local keycardkeypad = Workspace:WaitForChild("KeycardKeypad", 6).Hitbox
+    hctwn(keycardkeypad.CFrame * CFrame.new(2, 0, 6), -50)
     interact(keycardkeypad.ProximityPrompt, 0.25)
 
     UseKeypad:FireServer(globals.usbcode, keycardkeypad)
-
-    local guitarcasebutton = Workspace.prop_stadium_caseOpener.stadiumDramaticButton.Main
-    ctwn(guitarcasebutton.Position + Vector3.new(0, -5, 0))
-
-    task.wait(4)
-    interact(guitarcasebutton.ProximityPrompt)
-    settppos()
 end
 
 local function pulleyitems()
@@ -522,12 +463,9 @@ local function pulleyitems()
     while task.wait() do
         loops += 1
         local function process(v1)
-            task.wait(0.5)
             local prompt = v1.PrimaryPart.ProximityPrompt
             hctwn(v1.PrimaryPart.CFrame + Vector3.new(0, -6, 0), -40)
-            task.wait(1)
             interact(prompt, 1, true)
-            task.wait(0.5)
         end
         for _, v1 in pairs(Workspace.mapEntities.missionItems.Hooks:GetChildren()) do
             process(v1)
@@ -549,23 +487,18 @@ local function pulleyitems()
 
         loopcheck()
     end
-    task.wait(1)
     settppos()
 end
 
 local guitarhidepos = Vector3.new(712, 105, 27)
 local function assemblemekanism()
     local door = Workspace.Map.ObjectivePickDoor1:WaitForChild("Door", 10).DoorOpenPart
-    task.wait(2)
     hctwn(door.CFrame + Vector3.new(0, -6, 0), -40)
-    task.wait(1)
     interact(door.ProximityPrompt, hasSkill("O", "Ghost") and 2.5 or 5) -- O = aced infiltrator
-    task.wait(2)
 
-    hctwn(Workspace.mapEntities.missionItems.missionItem_laptopHack.Part.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -7, 0), -40)
+    hctwn(Workspace.mapEntities.missionItems.missionItem_laptopHack.Keyboard.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -8, 0), -40)
 
     local computer = Workspace.mapEntities.missionItems:WaitForChild("StadiumHackLaptop", 10).Keyboard
-    settppos(computer.CFrame * CFrame.Angles(0, 0, math.rad(-180)) + Vector3.new(0, -7, 0), true)
     interact(computer.ProximityPrompt, 5, true)
     task.wait(2)
 
@@ -573,14 +506,14 @@ local function assemblemekanism()
         local assemble = Workspace.AssemblePulleyRope.Hitbox
         hctwn(assemble.CFrame * CFrame.new(0, 0, -2), 50)
         interact(assemble.ProximityPrompt, 3)
-        task.wait(1)
     end
     if Workspace:FindFirstChild("AssemblePulleyHook") then
         local assemble = Workspace.AssemblePulleyHook.Hitbox
         hctwn(assemble.CFrame * CFrame.new(0, 0, -2), 50)
         interact(assemble.ProximityPrompt, 3)
-        task.wait(2)
     end
+
+    task.wait(0.5)
 
     local activate = Workspace.PulleyLever.Hitbox
     ctwn(activate.CFrame * CFrame.new(0, 0, -2))
@@ -592,43 +525,25 @@ local function leave()
     local guitar = Workspace.Pulley:WaitForChild("GoldGuitar", 40).missionItem_goldGuitar
     hctwn(guitar.CFrame * CFrame.new(0, 11, 0), 140)
     interact(guitar.ProximityPrompt, 1)
-    hctwn(guitarhidepos, 140)
 
-    local function checklocker(locker)
-        if not locker or not locker:FindFirstChild("Highlight_[]") then return end
+    hctwn(CFrame.new(68, 38.5, -175) * CFrame.Angles(0, 0, math.rad(180)), -40)
 
-        local hitbox = locker.Hitbox
-
-        local playerclosetimer = 0
-        while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
-            hctwn(hitbox.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, 2, 0), -40)
-
-            local playersnotclose = false
-            for _, v1 in pairs(Players:GetPlayers()) do
-                if LocalPlayer:DistanceFromCharacter(getRoot(v1.Character).Position) >= 14 then
-                    playersnotclose = true
-                end
-            end
-
-            if playersnotclose and playerclosetimer ~= 0 and tick() - playerclosetimer >= 10 then
-                error("couldnt trigger guard locker")
-            elseif not playersnotclose and playerclosetimer == 0 then
+    local playerclosetimer = tick()
+    while not lchar:FindFirstChild("HAS COSTUME") and task.wait() do
+        for _, v1 in pairs(Players:GetPlayers()) do
+            if LocalPlayer:DistanceFromCharacter(getRoot(v1.Character).Position) >= 14 then
                 playerclosetimer = tick()
             end
-
-            loopcheck()
-
-            hctwn(hitbox.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, -2, 0), -40)
         end
-    end
-    local start = tick()
-    while not lchar:FindFirstChild("HAS COSTUME") and tick() - start <= 60 and task.wait() do
-        checklocker(Workspace:FindFirstChild("GuardLocker1"))
-        checklocker(Workspace:FindFirstChild("GuardLocker2"))
+
+        if tick() - playerclosetimer >= 60 then
+            error("couldnt trigger guard locker")
+        end
+
         loopcheck()
     end
 
-    start = tick()
+    local start = tick()
     hctwn(Workspace.BagSecuredArea.FloorPart.CFrame, -40)
     while tick() - start <= 10 + (#Players:GetChildren() > 1 and 90 or 0) and lchar and lchar:IsDescendantOf(Workspace) and task.wait() do
         ctwn(Workspace.BagSecuredArea.FloorPart.CFrame * CFrame.Angles(0, 0, math.rad(180)) + Vector3.new(0, 2, 0))
@@ -670,16 +585,12 @@ end
 mainthread = createThread(function()
     print("running")
     --// do actions and stuff \\--
-    rfid()
-    task.wait(7)
-
     admin1()
+    rfid()
     admin2()
-    admin3()
     globals.usbcode = (Workspace:FindFirstChild("UseUSBComputer") or Workspace:FindFirstChild("UsedUSBComputer")).Screen.SurfaceGui.TextLabel.Text
     if not tonumber(globals.usbcode) then error("usb code was not found") end
     keycard()
-    task.wait(25)
     pulleyitems()
 
     assemblemekanism()
