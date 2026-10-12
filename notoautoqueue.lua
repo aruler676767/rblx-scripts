@@ -11,6 +11,11 @@ local LocalPlayer = Players.LocalPlayer
 
 while not Workspace:GetAttribute("ChallengesLoaded") do task.wait() end
 task.wait(1)
+
+if ReplicatedStorage.Lobbies:FindFirstChild(LocalPlayer.Name) then
+    ReplicatedStorage.LeaveLobby:FireServer(ReplicatedStorage.Lobbies[LocalPlayer.Name])
+end
+
 local lobby = ReplicatedStorage.MakeLobby:InvokeServer(
     Lobby.Mission,
     Lobby.Difficulty,
@@ -30,9 +35,9 @@ while task.wait(0.4) do
     if not lobby or not lobby:IsDescendantOf(game) then return end
     local validplayersinlobby = {}
     for _, v1 in pairs(lobby.Members:GetChildren()) do
-        if not v1.Value then continue end
+        if not v1.Value or v1.Value == LocalPlayer then continue end
         if table.find(Lobby.Players, v1.Value.Name) or table.find(Lobby.Players, v1.Value.UserId) then
-            if not v1.Ready.Value and v1.Value ~= LocalPlayer then
+            if not v1.Ready.Value then
                 canstart = false
             end
             table.insert(validplayersinlobby, v1.Value.Name)
